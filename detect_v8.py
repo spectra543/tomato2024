@@ -29,6 +29,13 @@ class SegmentationPublisher(Node):
         annotator = Annotator(im0, line_width=2)
         dark_background = np.zeros_like(im0)
 
+        # frame centroid
+        frame_height, frame_width = im0.shape[:2]
+        frame_centroid_x, frame_centroid_y = frame_width//2, frame_height//2
+
+        # map centroid
+        cv2.circle(im0, (frame_centroid_x, frame_centroid_y), 10, (200, 50, 150), -1)
+
         if results[0].masks is not None:
             clss = results[0].boxes.cls.cpu().tolist()
             masks = results[0].masks.xy
@@ -54,6 +61,20 @@ class SegmentationPublisher(Node):
                     cv2.fillPoly(mask_img, [np.array(mask, dtype=np.int32)], 255)
                     highlighted_area = cv2.bitwise_and(im0, im0, mask=mask_img)
                     dark_background = cv2.add(dark_background, highlighted_area)
+
+                    # rectangle draw
+                    x, y, w, h = cv2.boundingRect(np.array(mask, dtype=np.int32))
+                    cv2.rectangle(dark_background, (x, y), (x + w, y + h), color, 2)
+                    cv2.rectangle(im0, (x, y), (x + w, y + h), color, 2)
+
+                    # Calculate moments to find the centroid
+                    M = cv2.moments(mask_img)
+                    if M["m00"] != 0:
+                        cx = int(M["m10"] / M["m00"])
+                        cy = int(M["m01"] / M["m00"])
+                        # Draw centroid
+                        cv2.circle(dark_background, (cx, cy), 5, (0, 255, 0), -1)
+                        self.get_logger().info(f"Centroid of the largest mask: ({cx}, {cy})")
 
                     # Optionally, add bounding box and label for the single detected tomato
                     annotator.seg_bbox(mask=mask, mask_color=color, label=self.names[int(cls)], txt_color=txt_color)
