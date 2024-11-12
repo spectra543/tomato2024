@@ -16,7 +16,7 @@ class SegmentationPublisher(Node):
         self.timer = self.create_timer(0.1, self.timer_callback)  # Adjust the frequency as needed
         self.model = YOLO("best_v8.pt")  # Load the segmentation model
         self.names = self.model.model.names  # Get the class names
-        self.cap = cv2.VideoCapture("testAll.mp4")
+        self.cap = cv2.VideoCapture("./videos/IMG_1061.mov")
         self.bridge = CvBridge()
 
     def timer_callback(self):
