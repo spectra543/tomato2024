@@ -7,6 +7,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
+
 class SegmentationPublisher(Node):
     def __init__(self):
         super().__init__('segmentation_publisher')
@@ -31,7 +32,19 @@ class SegmentationPublisher(Node):
         if results[0].masks is not None:
             clss = results[0].boxes.cls.cpu().tolist()
             masks = results[0].masks.xy
-            for mask, cls in zip(masks, clss):
+
+            # Calculate the area of each mask and store it in a list
+            mask_areas = [cv2.contourArea(np.array(mask, dtype=np.int32)) for mask in masks]
+
+            # Sort the indices based on mask areas in descending order
+            sorted_indices = sorted(range(len(mask_areas)), key=lambda i: mask_areas[i], reverse=True)
+
+            # Use only the object with the largest mask area
+            if sorted_indices:
+                idx = sorted_indices[0]  # Get index of the object with the largest mask area
+                mask = masks[idx]
+                cls = clss[idx]
+
                 if mask.size > 0:  # Check if mask has valid data
                     color = colors(int(cls), True)
                     txt_color = annotator.get_txt_color(color)
@@ -42,7 +55,7 @@ class SegmentationPublisher(Node):
                     highlighted_area = cv2.bitwise_and(im0, im0, mask=mask_img)
                     dark_background = cv2.add(dark_background, highlighted_area)
 
-                    # Optionally, add bounding box and label
+                    # Optionally, add bounding box and label for the single detected tomato
                     annotator.seg_bbox(mask=mask, mask_color=color, label=self.names[int(cls)], txt_color=txt_color)
 
         # Publish the highlighted segmented area
@@ -62,6 +75,7 @@ class SegmentationPublisher(Node):
         self.original_publisher_.publish(ros_image)
         self.get_logger().info("Published original frame.")
 
+
 def main(args=None):
     rclpy.init(args=args)
     segmentation_publisher = SegmentationPublisher()
@@ -70,6 +84,6 @@ def main(args=None):
     cv2.destroyAllWindows()
     rclpy.shutdown()
 
+
 if __name__ == '__main__':
     main()
-
